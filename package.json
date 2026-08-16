@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-runbook",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "description": "Live data-flow runbook for DeepSeek Harness (DSH): scrubbable turn-by-turn DAG of every artifact an agent produced — mini-terminal rerun, LLM explain, git provenance nodes, subagent stitching, disk-scan static IO inference, PIPELINE.md backbone. Local-first.",
   "type": "module",
   "main": "lib/index.js",
