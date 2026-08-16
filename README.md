@@ -1,80 +1,89 @@
 # dsh-plugin-runbook
 
-DeepSeek Harness (DSH) Web UI 插件：给 agent 会话一个 **Jupyter 式活体运行本**。
+**English** · [中文](#中文介绍)
 
-一个视图回答三个问题：**这个 agent 到底产出了什么？每个文件是怎么来的？现在从头到尾怎么流动的？**
+> Turn any DeepSeek Harness (DSH) session into a live, scrubbable **data-flow runbook** — see everything your agent produced, how it connects, and rerun any step in one click.
 
 ![runbook](docs/screenshot.png)
 
-## 它是什么
+## Why
 
-打开 Runbook 标签页，整个会话变成一张**可回放的数据流 DAG**：
+You let an agent grind for hours. It touched 300 files, ran 50 commands, spawned subagents, committed to git — and at the end you're left asking: *what did it actually make, and how do the pieces fit?*
 
-- **回合滑杆** 从第一回合拖到最新一页，图从前向后像树一样生长（不是播片动画，是结构性的生长——缩放、平移、节点交互全程可用）；
-- 每个节点是一个**真实文件**：脚本 / 数据 / 图 / PDF / 文档，按种类着色；
-- 边是**真实数据流**：`data.csv → plot.py → fig.png`，从工具调用与命令行参数中重建，不是猜的；
-- **金色提交节点**：git 历史成为图的一等公民——每次提交是一个节点，按时间链成链，该提交动过的文件挂在其下。历史项目的文件靠它获得出处，不再是一堆孤儿；
-- **紫色 BOT 节点**：子 agent 会话（跨会话执行）也进图——它跑过什么脚本、写过什么文件、任务交接时吃掉了主会话的哪些产物，全部可见；
-- **持久账本**：runs 落盘到 `~/.dsh/dsh-plugin-runbook/ledger.jsonl`，会话被压缩、重启、换会话都不丢边。
-- **磁盘扫描 + 静态 IO 推断**：宿主直接走真实目录树（含未提交文件），静态解析每个脚本的输入/输出——三层精度：显式 IO 调用（`read_csv/to_csv/savefig`）→ CLI 旗标邻接（`arg("--out", "data.csv")`）→ mtime 时序推断。**没跑过、没推送、没进会话记录的研究代码照样自动进图并连出数据流**。
-- **主链骨架视图（双向）**：有 `PIPELINE.md`（mermaid 主链 DAG）时解析为视图主角——阶段卡片成链，状态用**语义化 SVG 徽章**（实心=完整 / 空环=部分 / 实琥珀=警告 / 斜杠环=缺失），磁盘真实文件自动挂靠，声明了但磁盘没有的渲染成虚线幽灵节点。**没有 PIPELINE.md 时从磁盘扫描的静态 IO 图零成本推断主链**（无 API 调用），想要更准就把推断结果固化成 PIPELINE.md 人工校对——文档是可选覆盖层，不是依赖。
-- **全局目录覆盖**：头部路径框回车即切换到任意项目目录，git/扫描/骨架全部重定向——运行本不再绑死当前会话的 cwd。三视图切换：自动 / 主链 / 会话流。
+The chat transcript can't answer that. **A graph can.**
 
-### 节点上的操作（悬停即出）
+Runbook builds a Jupyter-notebook-style DAG of the whole session: scripts, datasets, figures, docs — every node a real file, every edge real data flow. Scrub the turn slider and watch the pipeline **grow like a tree**. Hover a node for one-click **preview / rerun / LLM-explain**. Git history becomes provenance nodes; subagent work gets stitched in; a persistent ledger survives compaction and restarts.
 
-| 芯片 | 作用 |
+## Feature highlights
+
+| | |
 |---|---|
-| 👁 | 预览文件（图片/PDF/文本在页面内打开） |
-| ▶ | **重跑脚本**（py / sh / R / js），输出浮层实时显示 |
-| ✨ | **LLM 解释**：这句话级的"这个文件在流水线里干嘛的、怎么来的" |
+| 🔀 **Turn scrubber** | Drag from turn 1 to now — the graph grows structurally (zoom/pan stay live, no canned animation) |
+| 🖥 **Mini terminal** | Click ▶ on any script: a small corner terminal streams stdout/stderr + exit code — page never hijacked |
+| ✨ **LLM explain** | One sentence on what any file *is* and where it came from; racing primary × fallback models, 2–6 s typical |
+| 📜 **Git provenance** | Commits are first-class nodes chained in time; files hang off their commit — un-pushed history gets structure too |
+| 🤖 **Subagent stitching** | Child-session runs/edits/reads mined from their own logs; agent→script→artifact edges, purple-coded |
+| 💾 **Disk scan + static IO** | Never-ran, never-committed research code still enters the graph: `read_csv/to_csv/savefig` + CLI-flag adjacency + mtime inference |
+| 📖 **PIPELINE.md backbone** | Got a curated mermaid pipeline doc? It becomes the view. Missing files render as dashed ghosts — your gap list, visualized. No doc? A zero-API backbone is inferred from static IO |
+| 🧹 **Shelf** | Orphan files collapse into a per-directory tray by default — the pipeline stays the hero |
+| 🌐 **Global retarget** | Type any project path in the header; git/scan/backbone all retarget, persisted across sessions |
 
-✨ 采用**并发竞速**：会话主模型与备用模型同时请求，先回非空者胜——主模型经常返回空文本，备模型长 prompt 要 30 秒，竞速保证 2–6 秒内基本总有答案。
+All local by default. The only optional network call is ✨ explain, through your configured provider.
 
-### 孤儿文件收纳
-
-没参与任何数据流、只是在工具输出里被回显过的文件（`ls` 洪水、系统文件……）**默认收起**在左下角一条胶囊里：`📎 背景文件 24 · 展开`。展开后按**目录分组**摆放。主流水线永远是视口的主角。
-
-## 安装
+## Install
 
 ```bash
 dsh plugin --profile web add zhan-tz/dsh-plugin-runbook
 ```
 
-或手动挂载（profile 的 `cordis.patch.yml`，参考 [cordis.patch.yml](cordis.patch.yml)）：
+Open any conversation → **Runbook** tab. For the backbone view, drop a `PIPELINE.md` (mermaid `flowchart LR` + status emoji) in your project root — or just let it infer one.
 
-```yaml
-- insert:
-    - id: runbook
-      name: dsh-plugin-runbook
-```
-
-要求：DSH Web UI（`dsh web`）。纯本地运行，唯一可选的出网请求是 ✨ 解释（走你已配置的 LLM provider）。
-
-## 工作原理
+## How it works
 
 ```
-会话时间线 ──┐
-git 历史账本 ─┼──► buildFileGraph ──► 分层 DAG 布局 ──► SVG（缩放/平移/回放）
-子会话日志  ──┤         ▲
-持久账本    ──┤         └─ 宿主路由（zstd 解压、正则抽取、环防护）
-磁盘扫描    ──┘
+session timeline ──┐
+git ledger ────────┼──► buildFileGraph ──► layered layout ──► SVG (scrub/zoom/hover)
+subagent logs ─────┤         ▲
+persistent ledger ─┤         └─ host routes (zstd, regex, static IO, cycle guards)
+disk scan ─────────┘
 ```
 
-- 宿主端（`lib/index.js`）注册 6 个本地路由：`/agent-fileview` `/agent-explain` `/agent-run` `/agent-git` `/agent-subruns` `/agent-ledger` `/agent-scan`；
-- 客户端（`lib/client.js`）从会话 artifact + 上述路由重建图；布局带**环防护**（重跑脚本 `--out data.csv` 会天然成环）；
-- 子 agent 的 runs 通过解压其独立会话日志挖掘（含脚本源码中引用的输入文件 → 交接边）。
+Host (`lib/index.js`) exposes local routes: `/agent-fileview` `/agent-explain` `/agent-run` `/agent-git` `/agent-subruns` `/agent-ledger` `/agent-scan` `/agent-pipeline`. Client (`lib/client.js`) rebuilds the graph and renders it. See [ROADMAP.md](ROADMAP.md) for the layered architecture and what's next.
 
-## 已知边界（诚实清单）
+## Honest limits
 
-- ✨ 解释的备用模型在超长 prompt 下可能要 ~30 秒（有秒表计时，不会假死）；
-- 账本只保住**从安装起**的边——更早的历史会话靠 git 提交节点撑结构；
-- 超大仓库（>60 提交）按近 60 条采掘。
+- ✨ fallback model can take ~30 s on very long prompts (a live seconds counter shows it's working)
+- The ledger preserves edges **from install time**; earlier history relies on git commit nodes
+- Repos > 60 commits are mined by the most recent 60
 
-## Roadmap
+## Community
 
-- [ ] 提交节点上直接 `git show`（paperlab 式"改-验-交"闭环）
-- [ ] 文件版本代际（同一文件重写 N 次 → N 个节点，dsh-science 式溯源）
-- [ ] 全局"这个会话干了什么"的一段话总结
+Part of the [DSH plugin](https://github.com/topics/dsh-plugin) ecosystem. Feedback, issues and PRs welcome — especially pipeline-doc variants from other fields (the mermaid parser is deliberately lenient).
+
+**Keywords**: dsh plugin, DeepSeek Harness, agent artifacts, provenance, data lineage, pipeline DAG, workflow visualization, reproducibility, Jupyter-style, research notebook, agent observability, multi-agent.
+
+---
+
+## 中文介绍
+
+**DSH 插件：把任何 agent 会话变成可回放、可复跑的数据流运行本。**
+
+agent 干了几小时活，碰了 300 个文件、跑了 50 条命令、起了子 agent、提交了 git——聊天记录回答不了"它到底做出了什么、怎么串起来的"。**图能。**
+
+- **回合滑杆**：从第一回合拖到现在，流水线像树一样长出来（缩放平移全程可用）
+- **小终端**：任意脚本上点 ▶，右下角小终端流出 stdout/stderr + 退出码，不劫持页面
+- **悬停动作**：👁 预览 / ▶ 重跑 / ✨ 一句话解释（主备模型竞速，通常 2–6 秒）
+- **git 出处节点**：提交成链、文件挂靠——没推送的历史也有结构
+- **子 agent 缝合**：子会话日志挖掘，agent→脚本→产物紫色边
+- **磁盘扫描 + 静态 IO**：没跑过没提交的研究代码照样进图（`read_csv`/旗标邻接/mtime 三层推断）
+- **PIPELINE.md 主链**：有 mermaid 流程文档就以它为骨架，缺失文件渲染为幽灵节点；没有文档就零 API 自动推断
+- **孤儿收纳**：默认收起按目录分组，主流水线永远是主角
+
+安装：
+
+```bash
+dsh plugin --profile web add zhan-tz/dsh-plugin-runbook
+```
 
 ## License
 
