@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-runbook",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "DSH 插件：Jupyter 式活体运行本——回合可回放的数据流 DAG。git 提交出处、子 agent 交接、持久账本、磁盘扫描+静态 IO 推断（未运行/未推送的研究代码也进图）、悬停重跑与 LLM 解释。全本地。",
   "type": "module",
   "main": "lib/index.js",
