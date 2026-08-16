@@ -1,0 +1,43 @@
+{
+  "name": "dsh-plugin-runbook",
+  "version": "0.1.0",
+  "description": "Jupyter-like live runbook for DeepSeek Harness (DSH): a turn-scrubbable file-flow DAG of everything the agent produced — scripts, data, figures, docs — with git-commit provenance nodes, subagent handoff edges, a persistent cross-session ledger, hover-to-rerun and LLM explain. All local.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhan-tz/dsh-plugin-runbook.git"
+  },
+  "homepage": "https://github.com/zhan-tz/dsh-plugin-runbook#readme",
+  "bugs": {
+    "url": "https://github.com/zhan-tz/dsh-plugin-runbook/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "runbook",
+    "dag",
+    "dataflow",
+    "provenance",
+    "web-ui",
+    "jupyter"
+  ],
+  "license": "MIT"
+}

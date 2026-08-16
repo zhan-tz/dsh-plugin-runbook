@@ -1,0 +1,5 @@
+# 手动挂载片段：加到 profile 的 cordis.patch.yml（或 agent preset）
+# `dsh plugin --profile web add zhan-tz/dsh-plugin-runbook` 会自动完成同样的事。
+- insert:
+    - id: runbook
+      name: dsh-plugin-runbook
