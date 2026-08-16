@@ -16,6 +16,7 @@ DeepSeek Harness (DSH) Web UI 插件：给 agent 会话一个 **Jupyter 式活�
 - **金色提交节点**：git 历史成为图的一等公民——每次提交是一个节点，按时间链成链，该提交动过的文件挂在其下。历史项目的文件靠它获得出处，不再是一堆孤儿；
 - **紫色 BOT 节点**：子 agent 会话（跨会话执行）也进图——它跑过什么脚本、写过什么文件、任务交接时吃掉了主会话的哪些产物，全部可见；
 - **持久账本**：runs 落盘到 `~/.dsh/dsh-plugin-runbook/ledger.jsonl`，会话被压缩、重启、换会话都不丢边。
+- **磁盘扫描 + 静态 IO 推断**：宿主直接走真实目录树（含未提交文件），静态解析每个脚本的输入/输出——三层精度：显式 IO 调用（`read_csv/to_csv/savefig`）→ CLI 旗标邻接（`arg("--out", "data.csv")`）→ mtime 时序推断。**没跑过、没推送、没进会话记录的研究代码照样自动进图并连出数据流**。
 
 ### 节点上的操作（悬停即出）
 
@@ -53,10 +54,11 @@ dsh plugin --profile web add zhan-tz/dsh-plugin-runbook
 会话时间线 ──┐
 git 历史账本 ─┼──► buildFileGraph ──► 分层 DAG 布局 ──► SVG（缩放/平移/回放）
 子会话日志  ──┤         ▲
-持久账本    ──┘         └─ 宿主路由（zstd 解压、正则抽取、环防护）
+持久账本    ──┤         └─ 宿主路由（zstd 解压、正则抽取、环防护）
+磁盘扫描    ──┘
 ```
 
-- 宿主端（`lib/index.js`）注册 5 个本地路由：`/agent-fileview` `/agent-explain` `/agent-run` `/agent-git` `/agent-subruns` `/agent-ledger`；
+- 宿主端（`lib/index.js`）注册 6 个本地路由：`/agent-fileview` `/agent-explain` `/agent-run` `/agent-git` `/agent-subruns` `/agent-ledger` `/agent-scan`；
 - 客户端（`lib/client.js`）从会话 artifact + 上述路由重建图；布局带**环防护**（重跑脚本 `--out data.csv` 会天然成环）；
 - 子 agent 的 runs 通过解压其独立会话日志挖掘（含脚本源码中引用的输入文件 → 交接边）。
 
